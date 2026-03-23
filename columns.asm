@@ -48,14 +48,24 @@ main:
     addi $a2, $zero, 16         # set the length of the line to 16
     jal vline_draw              # calls the line drawing function
     
-    addi $a0, $zero, 8          # set the X coordinate to 8
+    addi $a0, $zero, 7          # set the X coordinate to 7
     addi $a1, $zero, 0          # set the Y coordinate to 0
     addi $a2, $zero, 16         # set the length of the line to 16
     jal vline_draw              # calls the line drawing function
     
+    addi $a0, $zero, 9          # set the X coordinate to 9
+    addi $a1, $zero, 0          # set the Y coordinate to 0
+    addi $a2, $zero, 5          # set the length of the line to 5
+    jal vline_draw              # calls the line drawing function
+    
+    addi $a0, $zero, 7          # set the X coordinate to 7
+    addi $a1, $zero, 4          # set the Y coordinate to 4
+    addi $a2, $zero, 3          # set the length of the line to 3
+    jal hline_draw              # calls the line drawing function
+    
     addi $a0, $zero, 0          # set the X coordinate to 0
     addi $a1, $zero, 0          # set the Y coordinate to 0
-    addi $a2, $zero, 8          # set the length of the line to 8
+    addi $a2, $zero, 10         # set the length of the line to 10
     jal hline_draw              # calls the line drawing function
     
     addi $a0, $zero, 0          # set the X coordinate to 0
@@ -115,6 +125,14 @@ main:
     jr $ra                          # return statement
 
 game_loop:
+    # First column (for milestone 1 so will remove later)
+    li $t1, 0xff0000 # $t1 = red
+    li $t2, 0x00ff00 # $t2 = green
+    li $t3, 0x0000ff # $t3 = blue
+    sw $t1, 160($t0)
+    sw $t2, 288($t0)
+    sw $t3, 416($t0)
+
     # 1a. Check if key has been pressed
     # 1b. Check which key has been pressed
     # 2a. Check for collisions
