@@ -25,10 +25,18 @@ ADDR_DSPL:
 # The address of the keyboard. Don't forget to connect it!
 ADDR_KBRD:
     .word 0xffff0000
+    
+colors: .word 0x00ff0000 # red
+        .word 0x0000ff00 # green
+        .word 0x000000ff # blue
+        .word 0x00ffff00 # yellow
+        .word 0x00ff00ff # magenta
+        .word 0x0000ffff # cyan
 
 ##############################################################################
 # Mutable Data
 ##############################################################################
+column: .word 0:3
 
 ##############################################################################
 # Code
@@ -74,6 +82,8 @@ main:
     jal hline_draw              # calls the line drawing function
     
     # Start the game
+    jal get_random_column
+    sw $ra, 0($sp)
     jal game_loop
     li $v0, 10                      # terminate the program gracefully
     syscall
@@ -125,14 +135,9 @@ main:
     jr $ra                          # return statement
 
 game_loop:
-    # First column (for milestone 1 so will remove later)
-    li $t1, 0xff0000 # $t1 = red
-    li $t2, 0x00ff00 # $t2 = green
-    li $t3, 0x0000ff # $t3 = blue
-    sw $t1, 160($t0)
-    sw $t2, 288($t0)
-    sw $t3, 416($t0)
-
+    # TODO check if should end the game
+    jal spawn_column # Spawn previously generated column
+    jal get_random_column # Generate next column and display
     # 1a. Check if key has been pressed
     # 1b. Check which key has been pressed
     # 2a. Check for collisions
@@ -142,3 +147,57 @@ game_loop:
 
     # 5. Go back to Step 1
     j game_loop
+    end_game:
+    lw $ra, 0($sp) # Assuming that after every cycle in the game loop that $sp points to where it originally pointed to
+    jr $ra
+
+get_random_column:
+    # Random seed (system time)
+    li $v0, 30 
+    syscall # gets system time $a0 = low 32 bits, $a1 = high 32 bits
+    move $a1, $a0       # Move low 32 bits of time into $a1 (the seed)
+    li $a0, 0           # Set Generator ID to 0
+    li $v0, 40          # Syscall 40: Set Seed
+    syscall
+
+    # Generate color combo
+    la $s0, column
+    la $t9, colors
+    addi $t6, $t0, 160
+    li $t1, 0
+    li $t2, 3
+    li $v0, 42
+    li $a1, 6
+    generate_loop:
+    beq $t1, $t2, generate_end
+    li $a0, 0
+    syscall # number in $a0
+    move $t3, $a0
+    sll $t3, $t3, 2 # multiply by 4 (offset)
+    add $t4, $t9, $t3 # store the index in $t4 (index)
+    lw $t3, 0($t4) # load the index value of colors and store in $t3
+    sll $t5, $t1, 2 # multiply by 4 (offset)
+    add $t4, $s0, $t5 # store the index in $t4 (index)
+    sw $t3, 0($t4) # store the color in $t3 to the index in column
+    sw $t3, 0($t6) # display on bitmap
+    addi $t6, $t6, 128 
+    addi $t1, $t1, 1
+    j generate_loop
+    generate_end:
+    jr $ra                          # return statement
+    
+spawn_column:
+    li $t1, 0
+    li $t2, 3
+    addi $t3, $t0, 4 # column top + 1 block
+    spawn_loop:
+    beq $t1, $t2, spawn_end
+    sll $t6, $t1, 2
+    add $t5, $s0, $t6
+    lw $t4, 0($t5)
+    addi $t3, $t3, 128
+    sw $t4, 0($t3)
+    addi $t1, $t1, 1
+    j spawn_loop
+    spawn_end:
+    jr $ra
