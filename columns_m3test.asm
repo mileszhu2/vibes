@@ -444,9 +444,11 @@ connection_finder:
             beq $t2, 336, paint_black_done # 84*4 = 336
             add $t4, $t1, $t2
             lw $t5, 0($t4) # get the location
+            blt $t5, 0x10008084, skip_paint # invalid location
             beq $t5, 0, paint_black_done # no more to search
             sw $t9, 0($t5) # paint black
             jal sleep
+            skip_paint:
             add $t2, $t2, 4 # increment
             j paint_black
         paint_black_done:
