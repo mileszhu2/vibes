@@ -30,7 +30,7 @@ colors: .word 0x00ff0000 # red
         .word 0x0000ff00 # green
         .word 0x000000ff # blue
         .word 0x00ffff00 # yellow
-        .word 0x006600ff # purple
+        .word 0x00cc00ff # purple
         .word 0x00ff9900 # orange
         
 # for flood fill
@@ -444,8 +444,8 @@ connection_finder:
             beq $t2, 336, paint_black_done # 84*4 = 336
             add $t4, $t1, $t2
             lw $t5, 0($t4) # get the location
-            blt $t5, 0x10008084, skip_paint # invalid location
             beq $t5, 0, paint_black_done # no more to search
+            blt $t5, 0x10008084, skip_paint # invalid location
             sw $t9, 0($t5) # paint black
             jal sleep
             skip_paint:
@@ -458,21 +458,33 @@ connection_finder:
             add $t4, $t1, $t2
             lw $t5, 0($t4) # get the location
             beq $t5, 0, do_we_continue # no more to search
-            move $t7, $t5
+            
+            sub $t6, $t5, $t0 # $t6 = $t5 - $t0
+            addi $t6, $t6, -4 # substract 4
+            sra $t4, $t6, 7 # divide by 128 and throw out remainder
+            sll $t4, $t4, 7 # multiply $t4 by 128
+            sub $t6, $t6, $t4 # $t6 - $t4 is the remainder and also the index
+            add $v1, $t8, $t6 # candidates location
+            lw $t6, 0($v1)
+            blt $t5, $t6, pos_adjust
+            move $t6, $t5
+            j pos_adjust_end
+            pos_adjust:
+            add $t6, $t5, 128 # adjust the position
+            pos_adjust_end:
+            move $t7, $t6
             drop_loop_up:
                 # check current column (loop bottom up till see black or grey)
                 addi $t6, $t7, -128 # move up previous $t7
                 lw $t4, 0($t6) # target color
-                sw $t9, 0($t6) # color above black
                 beq $t4, 0x808080, drop_exit # if $t4 is grey
-                beq $t4, 0, drop_exit # if $t4 is black
+                sw $t9, 0($t6) # color above black
+                # beq $t4, 0, drop_exit # if $t4 is black
                 sw $t4, 0($t7) # color current black pixel the above color (which is not black)
                 jal sleep
                 move $t7, $t6 # $t6 is the previous now
                 j drop_loop_up
             drop_exit:
-            move $t7, $t6
-            addi $t7, $t7, -256 # adjust to current_pos like in land_locations (already -128 in the drop_loop_up)
             la $v0, land_locations
             sub $t6, $t5, $t0 # $t6 = $t5 - $t0
             addi $t6, $t6, -4 # substract 4
@@ -481,9 +493,8 @@ connection_finder:
             sub $t6, $t6, $t4 # $t6 - $t4 is the remainder and also the index
             add $v0, $v0, $t6 # land_locations index
             lw $t4, 0($v0) # load the current land_location
-            ble $t7, $t4, skip_ll
-            sw $t7, 0($v0) # update land_locations
-            skip_ll:
+            addi $t4, $t4, 128
+            sw $t4, 0($v0)
             add $v1, $t8, $t6 # candidates location
             lw $t7, 0($v1)
             ble $t5, $t7, skip_replace
@@ -635,10 +646,22 @@ transfer_candidates:
         add $v0, $v1, $t6
         lw $t7, 0($v0) # load candidate
         beq $t7, 0, done_transfer # no more candidates
-        sw $t7, 0($a1) # store in to_be_deleted
-        add $a1, $a1, 4 # increment pointer for to_be_deleted
-        add $t6, $t6, 4 # increment
-        j transfer_loop
+        li $t8, 0 # duplicate check index
+        la $s7, to_be_deleted
+        duplicate_check_loop2:
+            beq $t8, 336, done_duplicate_check2 # 84*4 = 336
+            add $s6, $s7, $t8
+            lw $v0, 0($s6) # load value in to_be_deleted
+            beq $v0, 0, no_duplicate2 # no more values
+            beq $v0, $t7, done_duplicate_check2 # found a duplicate
+            add $t8, $t8, 4 # increment
+            j duplicate_check_loop2
+        no_duplicate2:
+            sw $t7, 0($a1) # store in to_be_deleted
+            add $a1, $a1, 4 # increment pointer for to_be_deleted
+        done_duplicate_check2:
+            add $t6, $t6, 4 # increment
+            j transfer_loop
     done_transfer:
     jr $ra
 
