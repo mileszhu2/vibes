@@ -30,19 +30,34 @@ colors: .word 0x00ff0000 # red
         .word 0x0000ff00 # green
         .word 0x000000ff # blue
         .word 0x00ffff00 # yellow
-        .word 0x00ff00ff # magenta
-        .word 0x0000ffff # cyan
+        .word 0x006600ff # purple
+        .word 0x00ff9900 # orange
+        
+# for flood fill
+movements: .word 0xffffff80 # up (-128)
+           .word 0x00000080 # down (128)
+           .word 0xfffffffc # left (-4)
+           .word 0x00000004 # right (4)
+           .word 0xffffff7c # top left (-132)
+           .word 0x00000084 # bot right (132)
+           .word 0xffffff84 # top right (-124)
+           .word 0x0000007c # bot left (124)
 
 ##############################################################################
 # Mutable Data
 ##############################################################################
-column: .word 0:3
+gravity_speed: .word 0 # gravity speed
+col_locs: .word 0:3 # locations (initially didn't need this but i found a bug)
+column: .word 0:3 # colors
 next_column: .word 0:3
 current_pos: .word 0x10008004 # position logs the block on top of the column's top block
 current_x: .word 0x00000000 # index of land_locations that corresponds to the current_pos of column
 previous_pos: .word 0x10008004
 col_hitbox: .word 0x10008184 # the bottom block of the column
 land_locations: .word 0:6 
+check_locations: .word 0:84 
+candidates: .word 0:84
+to_be_deleted: .word 0:84
 
 ##############################################################################
 # Code
@@ -171,12 +186,35 @@ game_loop:
 	li $v0, 32
 	li $a0, 1
 	syscall
+	
+	lw $t1, current_pos
+	lw $t2, current_x
+	la $t3, land_locations
+	
+	sll $t2, $t2, 2
+	add $t3, $t3, $t2
+	lw $t3, 0($t3)
+	
+	blt $t1, $t3, gravity
+	j respond_to_S
+	
+	gravity:
+        lw $t1, current_pos # param for collision_checker
+    	lw $t2, col_hitbox # param for collision_checker
+    	li $a0, 128 # offset to move right (param for collision_checker)
+    	jal collision_checker # check collision and update location if applicable
+    	
+    	li $v0, 32
+        lw $a0, gravity_speed
+        syscall
 
     lw $s2, ADDR_KBRD               # $t0 = base address for keyboard
     lw $t8, 0($s2)                  # Load first word from keyboard
     beq $t8, 1, keyboard_input      # If first word 1, key is pressed
     b key_loop
+    
 
+        
     # Check which key has been pressed
     keyboard_input:                     # A key is pressed
         lw $a0, 4($s2)                  # Load second word from keyboard
@@ -233,7 +271,11 @@ game_loop:
         sw $t2, 0($t5) # update land_locations with new lowest current_pos
         jal spawn_column
         jal sleep
+        lw $t1, col_hitbox
+        la $t3, check_locations # load some queue of locations to check
+        sw $t1, 0($t3)
         jal connection_finder # checks for connections and updates screen if applicable
+        jal end_turn # resets for new turn
         jal sleep
         j game_loop # Go back to Step 1
     respond_to_D:
@@ -282,6 +324,7 @@ get_random_column:
     jr $ra                          # return statement
     
 spawn_column:
+    la $s7, col_locs
     li $a0, 0x00000000 # black
     li $a1, 0x10008084 # min position that doesn't break the game
     li $t1, 0
@@ -296,7 +339,21 @@ spawn_column:
     lw $t4, 0($t5) # get the color
     addi $t3, $t3, 128 # color in position
     addi $t7, $t7, 128 # color out position
+    add $t6, $s7, $t6 # index in col_locs
+    sw $t3, 0($t6) # store color in position in col_locs
+    # search previous color in positions
+    li $t6, 0
+    search_col_locs:
+        beq $t6, $t1, color_out # no more previous color in positions and no match
+        sll $t5, $t6, 2
+        add $t8, $s7, $t5 # index in col_locs
+        lw $t8, 0($t8) # color in position in col_locs
+        beq $t7, $t8, skip_to_color_in # don't color out if the square was colored in
+        addi $t6, $t6, 1
+        j search_col_locs
+    color_out:
     sw $a0, 0($t7) # color out
+    skip_to_color_in:
     blt $t3, $a1, continue_spawn
     sw $t4, 0($t3) # color in
     addi $t1, $t1, 1 # increment
@@ -343,12 +400,17 @@ collision_checker:
     la $t2, current_pos
     add $t1, $t1, $a0
     sw $t1, 0($t2) # update current_pos for spawn_column
+    beq $a0, 128, alternate_ending
     sra $t9, $a0, 2 # divide 4???
     jal spawn_column
     la $t2, current_x
     lw $t1, current_x
     add $t1, $t1, $t9
     sw $t1, 0($t2)
+    j skip_current_x_update
+    alternate_ending:
+    jal spawn_column
+    skip_current_x_update:
     lw $ra, 0($sp)
     addi $sp, $sp, 4
     
@@ -358,8 +420,7 @@ sleep:
     syscall
     jr $ra
     
-connection_finder:
-
+end_turn:
     # Reset the pos for new turn
     la $t1, previous_pos
     la $t2, current_pos
@@ -375,4 +436,248 @@ connection_finder:
 	jr $ra
     it_over:
     sw $t6, 0($t2) # update current_pos 
+    jr $ra
+    
+connection_finder:
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    # params $t3 as a queue of locations to check
+    # subsequent functions in the recursion loop shouldn't change $t3 or the following assignments
+    li $t1, 0 # index for check_locations
+    la $a1, to_be_deleted
+    check_location_loop:
+        add $t2, $t3, $t1 # where to search in $t3 location queue
+        lw $t5, 0($t2) # get location
+        beq $t5, 0, update_game # signals end of queue
+        blt $t5, $t0, check_exit # invalid (clearly the game has a bug)
+        column_up_loop:
+            # check current column (loop bottom up till see black or grey)
+            lw $t4, 0($t5) # target color
+            beq $t4, 0x808080, up_exit # if $t4 is grey
+            beq $t4, 0, up_exit # if $t4 is black
+            jal check_around
+            addi $t5, $t5, -128 # move up
+            j column_up_loop
+        up_exit:
+        add $t1, $t1, 4 # increment
+        j check_location_loop
+    update_game:
+        jal sleep
+        move $v1, $t3
+        jal reset_array
+        la $t8, candidates
+        la $t1, to_be_deleted
+        li $t2, 0 # index 
+        li $t9, 0 # black
+        paint_black:
+            beq $t2, 336, paint_black_done # 84*4 = 336
+            add $t4, $t1, $t2
+            lw $t5, 0($t4) # get the location
+            beq $t5, 0, paint_black_done # no more to search
+            sw $t9, 0($t5) # paint black
+            jal sleep
+            add $t2, $t2, 4 # increment
+            j paint_black
+        paint_black_done:
+            li $t2, 0 # reset the index for drop_loop
+        drop_loop:
+            beq $t2, 336, do_we_continue # 84*4 = 336
+            add $t4, $t1, $t2
+            lw $t5, 0($t4) # get the location
+            beq $t5, 0, do_we_continue # no more to search
+            move $t7, $t5
+            drop_loop_up:
+                # check current column (loop bottom up till see black or grey)
+                addi $t6, $t7, -128 # move up previous $t7
+                lw $t4, 0($t6) # target color
+                sw $t9, 0($t6) # color above black
+                beq $t4, 0x808080, drop_exit # if $t4 is grey
+                beq $t4, 0, drop_exit # if $t4 is black
+                sw $t4, 0($t7) # color current black pixel the above color (which is not black)
+                jal sleep
+                move $t7, $t6 # $t6 is the previous now
+                j drop_loop_up
+            drop_exit:
+            move $t7, $t6
+            addi $t7, $t7, -256 # adjust to current_pos like in land_locations (already -128 in the drop_loop_up)
+            la $v0, land_locations
+            sub $t6, $t5, $t0 # $t6 = $t5 - $t0
+            addi $t6, $t6, -4 # substract 4
+            sra $t4, $t6, 7 # divide by 128 and throw out remainder
+            sll $t4, $t4, 7 # multiply $t4 by 128
+            sub $t6, $t6, $t4 # $t6 - $t4 is the remainder and also the index
+            add $v0, $v0, $t6 # land_locations index
+            lw $t4, 0($v0) # load the current land_location
+            ble $t7, $t4, skip_ll
+            sw $t7, 0($v0) # update land_locations
+            skip_ll:
+            add $v1, $t8, $t6 # candidates location
+            lw $t7, 0($v1)
+            ble $t5, $t7, skip_replace
+            sw $t5, 0($v1)
+            skip_replace:
+            add $t2, $t2, 4 # increment
+            j drop_loop
+        do_we_continue:
+            li $t1, 0 # index
+            li $t4, 0 # counter
+            search_loop:
+            beq $t1, 24, stop_search
+            add $v1, $t8, $t1
+            lw $t2, 0($v1) # load the first value
+            blt $t2, $t0, skip_search
+            add $v1, $t3, $t4
+            sw $t2, 0($v1)
+            add $t4, $t4, 4
+            skip_search:
+            add $t1, $t1, 4 # increment
+            j search_loop
+            stop_search:
+            la $v1, candidates
+            jal reset_array
+            la $v1, to_be_deleted
+            jal reset_array
+            beq $t4, 0, check_exit
+            jal connection_finder
+    check_exit:
+        lw $ra, 0($sp)
+        addi $sp, $sp, 4
+        jr $ra
+
+check_around:
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    # params $t4 as the target color and $t5 as the root location
+    # subsequent functions in the recursion loop shouldn't change $t4, $t5, or the following assignments
+    la $t2, movements
+    li $v0, 0 # connection length
+    la $v1, candidates
+    
+    # check vertical connection (up, down)
+    lw $a0, 0($t2) # up
+    add $t6, $t5, $zero
+    jal flood_fill # recursive
+    lw $a0, 4($t2) # down
+    add $t6, $t5, $zero
+    jal flood_fill # recursive
+    la $v1, candidates # reset candidates pointer
+    blt $v0, 3, skip1
+    jal transfer_candidates
+    skip1:
+    jal reset_array
+    jal sleep
+    
+    # if none, check horizontal connection (left, right)
+    li $v0, 0 # reset connection length
+    lw $a0, 8($t2) # left
+    add $t6, $t5, $zero
+    jal flood_fill # recursive
+    lw $a0, 12($t2) # right
+    add $t6, $t5, $zero
+    jal flood_fill # recursive
+    la $v1, candidates # reset candidates pointer
+    blt $v0, 3, skip2 
+    jal transfer_candidates
+    skip2:
+    jal reset_array
+    jal sleep
+    
+    # if none, check diagonal 1 (topleft, botright)
+    li $v0, 0 # reset connection length
+    lw $a0, 16($t2) # topleft
+    add $t6, $t5, $zero
+    jal flood_fill # recursive
+    lw $a0, 20($t2) # botright
+    add $t6, $t5, $zero
+    jal flood_fill # recursive
+    la $v1, candidates # reset candidates pointer
+    blt $v0, 3, skip3 
+    jal transfer_candidates
+    skip3:
+    jal reset_array
+    jal sleep
+    
+    # if none, check diagonal 2 (topright, botleft)
+    li $v0, 0 # reset connection length
+    lw $a0, 24($t2) # topright
+    add $t6, $t5, $zero
+    jal flood_fill # recursive
+    lw $a0, 28($t2) # botleft
+    add $t6, $t5, $zero
+    jal flood_fill # recursive
+    la $v1, candidates # reset candidates pointer
+    blt $v0, 3, skip4 
+    jal transfer_candidates
+    skip4:
+    jal reset_array
+    jal sleep
+    
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr $ra
+    
+flood_fill: 
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    # params $v0 (connection length), $v1 (candidates), $t6 (search location), $t4 (target color), $a0 (direction)
+    # returns $v0 (connection length)
+    lw $t7, 0($t6) # get the color
+    bne $t7, $t4, end_flood # if no more of same color in direction $a0
+    # else
+    jal duplicate_check
+    add $t6, $t6, $a0 # move one step in $a0 direction
+    jal flood_fill # keep searching
+    end_flood:
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr $ra
+
+duplicate_check:
+    # params $t6 as the location value to check in candidates 
+    # and $v1 as the current candidates pointer
+    # and $v0 as the connection length
+    la $s7, candidates
+    li $t8, 0 # index
+    duplicate_check_loop:
+        beq $t8, 336, done_duplicate_check # 84*4 = 336
+        add $s6, $s7, $t8
+        lw $t7, 0($s6) # load candidate
+        beq $t7, 0, no_duplicate # no more candidates
+        beq $t7, $t6, done_duplicate_check # found a duplicate
+        add $t8, $t8, 4 # increment
+        j duplicate_check_loop
+    no_duplicate:
+        sw $t6, 0($v1) # add to candidates
+        add $v1, $v1, 4 # increment candidates pointer
+        addi $v0, $v0, 1 # increase connection length by 1
+    done_duplicate_check:
+    jr $ra
+
+transfer_candidates:
+    # $a1 is to_be_deleted array
+    la $v1, candidates
+    li $t6, 0 # index
+    transfer_loop:
+        beq $t6, 336, done_transfer # 84*4 = 336
+        add $v0, $v1, $t6
+        lw $t7, 0($v0) # load candidate
+        beq $t7, 0, done_transfer # no more candidates
+        sw $t7, 0($a1) # store in to_be_deleted
+        add $a1, $a1, 4 # increment pointer for to_be_deleted
+        add $t6, $t6, 4 # increment
+        j transfer_loop
+    done_transfer:
+    jr $ra
+
+reset_array:
+    # params $v1 (array)
+    li $t6, 0 # index
+    li $t7, 0 # reset value
+    reset_array_loop:
+        beq $t6, 336, done_reset_array # 84*4 = 336
+        add $v0, $v1, $t6
+        sw $t7, 0($v0) # store 0
+        add $t6, $t6, 4 # increment
+        j reset_array_loop
+    done_reset_array:
     jr $ra
