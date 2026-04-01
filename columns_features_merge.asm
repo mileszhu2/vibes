@@ -53,6 +53,7 @@ movements: .word 0xffffff80 # up (-128)
 ##############################################################################
 # Mutable Data
 ##############################################################################
+last_update: .word 0
 gravity_speed: .word 0 # gravity speed
 col_locs: .word 0:3 # locations (initially didn't need this but i found a bug)
 column: .word 0:3 # colors
@@ -126,8 +127,31 @@ game_loop:
 	li $v0, 32
 	li $a0, 1
 	syscall
-	
-	lw $t1, current_pos
+
+    lw $s2, ADDR_KBRD               # $t0 = base address for keyboard
+    lw $t8, 0($s2)                  # Load first word from keyboard
+    beq $t8, 1, keyboard_input      # If first word 1, key is pressed
+    
+    # Timer check
+    li $v0, 30
+    syscall
+    lw $t1, last_update
+    sub $t2, $a0, $t1
+    
+    # Check if 1 second has passed
+    lw $t3, gravity_speed
+    bge $t2, $t3, update_display
+    
+    # Small delay to prevent busy-waiting
+    li $v0, 32
+    li $a0, 10                  # 10ms delay
+    syscall
+    
+    b key_loop
+    
+    update_display:
+    # Update bitmap display
+    lw $t1, current_pos
 	lw $t2, current_x
 	la $t3, land_locations
 	
@@ -143,14 +167,12 @@ game_loop:
     	lw $t2, col_hitbox # param for collision_checker
     	li $a0, 128 # offset to move right (param for collision_checker)
     	jal collision_checker # check collision and update location if applicable
-    	
-    	li $v0, 32
-        lw $a0, gravity_speed
-        syscall
-
-    lw $s2, ADDR_KBRD               # $t0 = base address for keyboard
-    lw $t8, 0($s2)                  # Load first word from keyboard
-    beq $t8, 1, keyboard_input      # If first word 1, key is pressed
+    
+    # Reset timer
+    li $v0, 30
+    syscall
+    sw $a0, last_update
+    
     b key_loop
 
     # Check which key has been pressed
