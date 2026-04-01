@@ -32,6 +32,14 @@ colors: .word 0x00ff0000 # red
         .word 0x00ffff00 # yellow
         .word 0x006600ff # purple
         .word 0x00ff9900 # orange
+
+colors2:    .word 0x00ffffca
+            .word 0x00ffffcb
+            .word 0x00ffffcc
+            .word 0x00ffffcd
+            .word 0x00ffffce
+            .word 0x00ffffcf
+
         
 # for flood fill
 movements: .word 0xffffff80 # up (-128)
@@ -58,7 +66,13 @@ land_locations: .word 0:6
 check_locations: .word 0:84 
 candidates: .word 0:84
 to_be_deleted: .word 0:84
-
+used_colors:    .word 0x00ff0000 # red
+                .word 0x0000ff00 # green
+                .word 0x000000ff # blue
+                .word 0x00ffff00 # yellow
+                .word 0x006600ff # purple
+                .word 0x00ff9900 # orange
+        
 ##############################################################################
 # Code
 ##############################################################################
@@ -67,6 +81,9 @@ to_be_deleted: .word 0:84
 	
 # Main title screen
 begin_loop:
+    # clear the screen in case we're running from end screen
+    lw $t0, ADDR_DSPL
+    jal clear_screen
     # Check if a key is available
     li $t0, 0xFFFF0000      # receiver control
     lw $t1, 0($t0)
@@ -92,23 +109,22 @@ begin_loop:
     beq $t2, $t3, draw_tony
 
     continue:    
-    title_loop:
-        lw $t0, ADDR_DSPL
-        jal draw_title
-        
-        # sleep for half a second
-        li $v0, 32
-        li $a0, 500
-        syscall
-        
-        jal flash_title
-        
-        li $v0, 32
-        li $a0, 500
-        syscall
-        
-        jal clear_screen
-        j begin_loop
+    lw $t0, ADDR_DSPL
+    jal draw_title
+    
+    # sleep for half a second
+    li $v0, 32
+    li $a0, 500
+    syscall
+    
+    jal flash_title
+    
+    li $v0, 32
+    li $a0, 500
+    syscall
+    
+    jal clear_screen
+    j begin_loop
     
 draw_title:
     li $t1, 0xffffff      # make $t1 white
@@ -812,6 +828,21 @@ draw_tony:
     la $t0, gravity_speed
     sw $zero, 0($t0)
     
+    # overwrite the colours.
+    set_colors2:
+        la $t0, used_colors   # destination
+        la $t1, colors2       # source
+        li $t2, 6             # number of elements
+
+    copy_loop:
+        lw $t3, 0($t1)        # load from colors2
+        sw $t3, 0($t0)        # store into used_colors
+    
+        addi $t0, $t0, 4
+        addi $t1, $t1, 4
+        addi $t2, $t2, -1
+        bgtz $t2, copy_loop
+    
     # sleep for half a second
     li $v0, 32
     li $a0, 2000
@@ -819,7 +850,6 @@ draw_tony:
     
     j main
     
-
 clear_screen:
     # Total number of pixels: 256 * 256 = 65536
     li $t2, 1024        # loop counter
@@ -1066,15 +1096,11 @@ game_loop:
 	# 3. Draw the screen
 	# 4. Sleep
 
-    
     j game_loop
-    end_game:
-    li $v0, 10 # terminate the program gracefully
-    syscall
 
 get_random_column:
     # Generate color combo
-    la $t9, colors
+    la $t9, used_colors
     addi $t6, $t0, 160
     li $t1, 0
     li $t2, 3
@@ -1456,3 +1482,656 @@ reset_array:
         j reset_array_loop
     done_reset_array:
     jr $ra
+    
+end_game:
+    lw $t0, ADDR_DSPL
+    jal clear_screen
+    
+    # Check if a key is available
+    li $t0, 0xFFFF0000      # receiver control
+    lw $t1, 0($t0)
+
+    andi $t1, $t1, 1
+    beq $t1, $zero, continue_end   # 🔁 keep waiting
+
+    # Read the key
+    li $t0, 0xFFFF0004
+    lw $t2, 0($t0)
+
+    # Check for valid keys
+    li $t3, 'm'
+    beq $t2, $t3, menu_chosen
+
+    li $t3, 'q'
+    beq $t2, $t3, quit_chosen
+
+    continue_end:    
+    lw $t0, ADDR_DSPL
+    jal draw_end_screen
+    
+    # sleep for half a second
+    li $v0, 32
+    li $a0, 500
+    syscall
+    
+    jal flash_end_screen
+    
+    li $v0, 32
+    li $a0, 500
+    syscall
+    
+    jal clear_screen
+    j end_game
+    
+draw_end_screen:
+    li $t1, 0xffffff      # make $t1 white
+        
+    sw $t1, 264($t0)
+    sw $t1, 268($t0)
+    sw $t1, 272($t0)
+    sw $t1, 280($t0)
+    sw $t1, 284($t0)
+    sw $t1, 288($t0)
+    sw $t1, 296($t0)
+    sw $t1, 312($t0)
+    sw $t1, 320($t0)
+    sw $t1, 324($t0)
+    sw $t1, 328($t0)
+    sw $t1, 392($t0)
+    sw $t1, 408($t0)
+    sw $t1, 416($t0)
+    sw $t1, 424($t0)
+    sw $t1, 428($t0)
+    sw $t1, 436($t0)
+    sw $t1, 440($t0)
+    sw $t1, 448($t0)
+    sw $t1, 520($t0)
+    sw $t1, 528($t0)
+    sw $t1, 536($t0)
+    sw $t1, 540($t0)
+    sw $t1, 544($t0)
+    sw $t1, 552($t0)
+    sw $t1, 560($t0)
+    sw $t1, 568($t0)
+    sw $t1, 576($t0)
+    sw $t1, 580($t0)
+    sw $t1, 584($t0)
+    sw $t1, 648($t0)
+    sw $t1, 656($t0)
+    sw $t1, 664($t0)
+    sw $t1, 672($t0)
+    sw $t1, 680($t0)
+    sw $t1, 688($t0)
+    sw $t1, 696($t0)
+    sw $t1, 704($t0)
+    sw $t1, 776($t0)
+    sw $t1, 780($t0)
+    sw $t1, 784($t0)
+    sw $t1, 792($t0)
+    sw $t1, 800($t0)
+    sw $t1, 808($t0)
+    sw $t1, 816($t0)
+    sw $t1, 824($t0)
+    sw $t1, 832($t0)
+    sw $t1, 836($t0)
+    sw $t1, 840($t0)
+    sw $t1, 1032($t0)
+    sw $t1, 1036($t0)
+    sw $t1, 1040($t0)
+    sw $t1, 1048($t0)
+    sw $t1, 1056($t0)
+    sw $t1, 1064($t0)
+    sw $t1, 1068($t0)
+    sw $t1, 1072($t0)
+    sw $t1, 1080($t0)
+    sw $t1, 1084($t0)
+    sw $t1, 1088($t0)
+    sw $t1, 1160($t0)
+    sw $t1, 1168($t0)
+    sw $t1, 1176($t0)
+    sw $t1, 1184($t0)
+    sw $t1, 1192($t0)
+    sw $t1, 1208($t0)
+    sw $t1, 1216($t0)
+    sw $t1, 1288($t0)
+    sw $t1, 1296($t0)
+    sw $t1, 1304($t0)
+    sw $t1, 1312($t0)
+    sw $t1, 1320($t0)
+    sw $t1, 1324($t0)
+    sw $t1, 1328($t0)
+    sw $t1, 1336($t0)
+    sw $t1, 1340($t0)
+    sw $t1, 1416($t0)
+    sw $t1, 1424($t0)
+    sw $t1, 1432($t0)
+    sw $t1, 1440($t0)
+    sw $t1, 1448($t0)
+    sw $t1, 1464($t0)
+    sw $t1, 1472($t0)
+    sw $t1, 1544($t0)
+    sw $t1, 1548($t0)
+    sw $t1, 1552($t0)
+    sw $t1, 1560($t0)
+    sw $t1, 1564($t0)
+    sw $t1, 1568($t0)
+    sw $t1, 1576($t0)
+    sw $t1, 1580($t0)
+    sw $t1, 1584($t0)
+    sw $t1, 1592($t0)
+    sw $t1, 1600($t0)
+    sw $t1, 1608($t0)
+    sw $t1, 1928($t0)
+    sw $t1, 1944($t0)
+    sw $t1, 1952($t0)
+    sw $t1, 1956($t0)
+    sw $t1, 1960($t0)
+    sw $t1, 1968($t0)
+    sw $t1, 1980($t0)
+    sw $t1, 1988($t0)
+    sw $t1, 1996($t0)
+    sw $t1, 2056($t0)
+    sw $t1, 2060($t0)
+    sw $t1, 2068($t0)
+    sw $t1, 2072($t0)
+    sw $t1, 2080($t0)
+    sw $t1, 2096($t0)
+    sw $t1, 2100($t0)
+    sw $t1, 2108($t0)
+    sw $t1, 2116($t0)
+    sw $t1, 2124($t0)
+    sw $t1, 2184($t0)
+    sw $t1, 2192($t0)
+    sw $t1, 2200($t0)
+    sw $t1, 2208($t0)
+    sw $t1, 2212($t0)
+    sw $t1, 2216($t0)
+    sw $t1, 2224($t0)
+    sw $t1, 2232($t0)
+    sw $t1, 2236($t0)
+    sw $t1, 2244($t0)
+    sw $t1, 2252($t0)
+    sw $t1, 2312($t0)
+    sw $t1, 2320($t0)
+    sw $t1, 2328($t0)
+    sw $t1, 2336($t0)
+    sw $t1, 2352($t0)
+    sw $t1, 2364($t0)
+    sw $t1, 2372($t0)
+    sw $t1, 2380($t0)
+    sw $t1, 2440($t0)
+    sw $t1, 2448($t0)
+    sw $t1, 2456($t0)
+    sw $t1, 2464($t0)
+    sw $t1, 2468($t0)
+    sw $t1, 2472($t0)
+    sw $t1, 2480($t0)
+    sw $t1, 2492($t0)
+    sw $t1, 2500($t0)
+    sw $t1, 2504($t0)
+    sw $t1, 2508($t0)
+    sw $t1, 2696($t0)
+    sw $t1, 2700($t0)
+    sw $t1, 2704($t0)
+    sw $t1, 2712($t0)
+    sw $t1, 2720($t0)
+    sw $t1, 2728($t0)
+    sw $t1, 2736($t0)
+    sw $t1, 2740($t0)
+    sw $t1, 2744($t0)
+    sw $t1, 2824($t0)
+    sw $t1, 2832($t0)
+    sw $t1, 2840($t0)
+    sw $t1, 2848($t0)
+    sw $t1, 2856($t0)
+    sw $t1, 2868($t0)
+    sw $t1, 2952($t0)
+    sw $t1, 2960($t0)
+    sw $t1, 2968($t0)
+    sw $t1, 2976($t0)
+    sw $t1, 2984($t0)
+    sw $t1, 2996($t0)
+    sw $t1, 3080($t0)
+    sw $t1, 3088($t0)
+    sw $t1, 3096($t0)
+    sw $t1, 3104($t0)
+    sw $t1, 3112($t0)
+    sw $t1, 3124($t0)
+    sw $t1, 3208($t0)
+    sw $t1, 3212($t0)
+    sw $t1, 3224($t0)
+    sw $t1, 3228($t0)
+    sw $t1, 3232($t0)
+    sw $t1, 3240($t0)
+    sw $t1, 3252($t0)
+    sw $t1, 3344($t0)
+
+    jr $ra
+    
+flash_end_screen:
+    li $t1, 0x000000     # make $t1 black
+    
+    sw $t1, 1928($t0)
+    sw $t1, 1944($t0)
+    sw $t1, 2056($t0)
+    sw $t1, 2060($t0)
+    sw $t1, 2068($t0)
+    sw $t1, 2072($t0)
+    sw $t1, 2184($t0)
+    sw $t1, 2192($t0)
+    sw $t1, 2200($t0)
+    sw $t1, 2312($t0)
+    sw $t1, 2320($t0)
+    sw $t1, 2328($t0)
+    sw $t1, 2440($t0)
+    sw $t1, 2448($t0)
+    sw $t1, 2456($t0)
+    sw $t1, 2696($t0)
+    sw $t1, 2700($t0)
+    sw $t1, 2704($t0)
+    sw $t1, 2824($t0)
+    sw $t1, 2832($t0)
+    sw $t1, 2952($t0)
+    sw $t1, 2960($t0)
+    sw $t1, 3080($t0)
+    sw $t1, 3088($t0)
+    sw $t1, 3208($t0)
+    sw $t1, 3212($t0)
+    sw $t1, 3344($t0)
+    
+    jr $ra
+    
+menu_chosen:
+    lw $t0, ADDR_DSPL
+    li $t1, 0xffffff      # make $t1 white
+
+    sw $t1, 264($t0)
+    sw $t1, 268($t0)
+    sw $t1, 272($t0)
+    sw $t1, 280($t0)
+    sw $t1, 284($t0)
+    sw $t1, 288($t0)
+    sw $t1, 296($t0)
+    sw $t1, 312($t0)
+    sw $t1, 320($t0)
+    sw $t1, 324($t0)
+    sw $t1, 328($t0)
+    sw $t1, 392($t0)
+    sw $t1, 408($t0)
+    sw $t1, 416($t0)
+    sw $t1, 424($t0)
+    sw $t1, 428($t0)
+    sw $t1, 436($t0)
+    sw $t1, 440($t0)
+    sw $t1, 448($t0)
+    sw $t1, 520($t0)
+    sw $t1, 528($t0)
+    sw $t1, 536($t0)
+    sw $t1, 540($t0)
+    sw $t1, 544($t0)
+    sw $t1, 552($t0)
+    sw $t1, 560($t0)
+    sw $t1, 568($t0)
+    sw $t1, 576($t0)
+    sw $t1, 580($t0)
+    sw $t1, 584($t0)
+    sw $t1, 648($t0)
+    sw $t1, 656($t0)
+    sw $t1, 664($t0)
+    sw $t1, 672($t0)
+    sw $t1, 680($t0)
+    sw $t1, 688($t0)
+    sw $t1, 696($t0)
+    sw $t1, 704($t0)
+    sw $t1, 776($t0)
+    sw $t1, 780($t0)
+    sw $t1, 784($t0)
+    sw $t1, 792($t0)
+    sw $t1, 800($t0)
+    sw $t1, 808($t0)
+    sw $t1, 816($t0)
+    sw $t1, 824($t0)
+    sw $t1, 832($t0)
+    sw $t1, 836($t0)
+    sw $t1, 840($t0)
+    sw $t1, 1032($t0)
+    sw $t1, 1036($t0)
+    sw $t1, 1040($t0)
+    sw $t1, 1048($t0)
+    sw $t1, 1056($t0)
+    sw $t1, 1064($t0)
+    sw $t1, 1068($t0)
+    sw $t1, 1072($t0)
+    sw $t1, 1080($t0)
+    sw $t1, 1084($t0)
+    sw $t1, 1088($t0)
+    sw $t1, 1160($t0)
+    sw $t1, 1168($t0)
+    sw $t1, 1176($t0)
+    sw $t1, 1184($t0)
+    sw $t1, 1192($t0)
+    sw $t1, 1208($t0)
+    sw $t1, 1216($t0)
+    sw $t1, 1288($t0)
+    sw $t1, 1296($t0)
+    sw $t1, 1304($t0)
+    sw $t1, 1312($t0)
+    sw $t1, 1320($t0)
+    sw $t1, 1324($t0)
+    sw $t1, 1328($t0)
+    sw $t1, 1336($t0)
+    sw $t1, 1340($t0)
+    sw $t1, 1416($t0)
+    sw $t1, 1424($t0)
+    sw $t1, 1432($t0)
+    sw $t1, 1440($t0)
+    sw $t1, 1448($t0)
+    sw $t1, 1464($t0)
+    sw $t1, 1472($t0)
+    sw $t1, 1544($t0)
+    sw $t1, 1548($t0)
+    sw $t1, 1552($t0)
+    sw $t1, 1560($t0)
+    sw $t1, 1564($t0)
+    sw $t1, 1568($t0)
+    sw $t1, 1576($t0)
+    sw $t1, 1580($t0)
+    sw $t1, 1584($t0)
+    sw $t1, 1592($t0)
+    sw $t1, 1600($t0)
+    sw $t1, 1608($t0)
+    sw $t1, 1928($t0)
+    sw $t1, 1944($t0)
+    sw $t1, 1952($t0)
+    sw $t1, 1956($t0)
+    sw $t1, 1960($t0)
+    sw $t1, 1968($t0)
+    sw $t1, 1980($t0)
+    sw $t1, 1988($t0)
+    sw $t1, 1996($t0)
+    sw $t1, 2056($t0)
+    sw $t1, 2060($t0)
+    sw $t1, 2068($t0)
+    sw $t1, 2072($t0)
+    sw $t1, 2080($t0)
+    sw $t1, 2096($t0)
+    sw $t1, 2100($t0)
+    sw $t1, 2108($t0)
+    sw $t1, 2116($t0)
+    sw $t1, 2124($t0)
+    sw $t1, 2184($t0)
+    sw $t1, 2192($t0)
+    sw $t1, 2200($t0)
+    sw $t1, 2208($t0)
+    sw $t1, 2212($t0)
+    sw $t1, 2216($t0)
+    sw $t1, 2224($t0)
+    sw $t1, 2232($t0)
+    sw $t1, 2236($t0)
+    sw $t1, 2244($t0)
+    sw $t1, 2252($t0)
+    sw $t1, 2312($t0)
+    sw $t1, 2320($t0)
+    sw $t1, 2328($t0)
+    sw $t1, 2336($t0)
+    sw $t1, 2352($t0)
+    sw $t1, 2364($t0)
+    sw $t1, 2372($t0)
+    sw $t1, 2380($t0)
+    sw $t1, 2440($t0)
+    sw $t1, 2448($t0)
+    sw $t1, 2456($t0)
+    sw $t1, 2464($t0)
+    sw $t1, 2468($t0)
+    sw $t1, 2472($t0)
+    sw $t1, 2480($t0)
+    sw $t1, 2492($t0)
+    sw $t1, 2500($t0)
+    sw $t1, 2504($t0)
+    sw $t1, 2508($t0)
+    
+    # sleep for half a second
+    li $v0, 32
+    li $a0, 2000
+    syscall
+    
+    # reset mutable data
+    
+    reset_state:
+        # ---------- gravity_speed ----------
+        la $t0, gravity_speed
+        sw $zero, 0($t0)
+    
+        # ---------- current_x ----------
+        la $t0, current_x
+        sw $zero, 0($t0)
+    
+        # ---------- col_locs (3 words) ----------
+        la $t0, col_locs
+        li $t1, 3
+    reset_col_locs:
+        sw $zero, 0($t0)
+        addi $t0, $t0, 4
+        addi $t1, $t1, -1
+        bgtz $t1, reset_col_locs
+    
+        # ---------- column (3 words) ----------
+        la $t0, column
+        li $t1, 3
+    reset_column:
+        sw $zero, 0($t0)
+        addi $t0, $t0, 4
+        addi $t1, $t1, -1
+        bgtz $t1, reset_column
+    
+        # ---------- next_column (3 words) ----------
+        la $t0, next_column
+        li $t1, 3
+    reset_next_column:
+        sw $zero, 0($t0)
+        addi $t0, $t0, 4
+        addi $t1, $t1, -1
+        bgtz $t1, reset_next_column
+    
+        # ---------- land_locations (6 words) ----------
+        la $t0, land_locations
+        li $t1, 6
+    reset_land:
+        sw $zero, 0($t0)
+        addi $t0, $t0, 4
+        addi $t1, $t1, -1
+        bgtz $t1, reset_land
+    
+        # ---------- check_locations (84 words) ----------
+        la $t0, check_locations
+        li $t1, 84
+    reset_check:
+        sw $zero, 0($t0)
+        addi $t0, $t0, 4
+        addi $t1, $t1, -1
+        bgtz $t1, reset_check
+    
+        # ---------- candidates (84 words) ----------
+        la $t0, candidates
+        li $t1, 84
+    reset_candidates:
+        sw $zero, 0($t0)
+        addi $t0, $t0, 4
+        addi $t1, $t1, -1
+        bgtz $t1, reset_candidates
+    
+        # ---------- to_be_deleted (84 words) ----------
+        la $t0, to_be_deleted
+        li $t1, 84
+    reset_deleted:
+        sw $zero, 0($t0)
+        addi $t0, $t0, 4
+        addi $t1, $t1, -1
+        bgtz $t1, reset_deleted
+    
+        # ---------- reset pointer-based values ----------
+        la $t0, current_pos
+        li $t1, 0x10008004
+        sw $t1, 0($t0)
+    
+        la $t0, previous_pos
+        sw $t1, 0($t0)
+    
+        la $t0, col_hitbox
+        li $t1, 0x10008184
+        sw $t1, 0($t0)
+        
+    # restore original colours
+    restore_colors:
+        la $t0, used_colors
+        la $t1, colors
+        li $t2, 6
+
+    restore_loop:
+        lw $t3, 0($t1)
+        sw $t3, 0($t0)
+    
+        addi $t0, $t0, 4
+        addi $t1, $t1, 4
+        addi $t2, $t2, -1
+        bgtz $t2, restore_loop
+
+    j begin_loop
+
+quit_chosen:
+    lw $t0, ADDR_DSPL
+    li $t1, 0xffffff      # make $t1 white
+    
+    sw $t1, 264($t0)
+    sw $t1, 268($t0)
+    sw $t1, 272($t0)
+    sw $t1, 280($t0)
+    sw $t1, 284($t0)
+    sw $t1, 288($t0)
+    sw $t1, 296($t0)
+    sw $t1, 312($t0)
+    sw $t1, 320($t0)
+    sw $t1, 324($t0)
+    sw $t1, 328($t0)
+    sw $t1, 392($t0)
+    sw $t1, 408($t0)
+    sw $t1, 416($t0)
+    sw $t1, 424($t0)
+    sw $t1, 428($t0)
+    sw $t1, 436($t0)
+    sw $t1, 440($t0)
+    sw $t1, 448($t0)
+    sw $t1, 520($t0)
+    sw $t1, 528($t0)
+    sw $t1, 536($t0)
+    sw $t1, 540($t0)
+    sw $t1, 544($t0)
+    sw $t1, 552($t0)
+    sw $t1, 560($t0)
+    sw $t1, 568($t0)
+    sw $t1, 576($t0)
+    sw $t1, 580($t0)
+    sw $t1, 584($t0)
+    sw $t1, 648($t0)
+    sw $t1, 656($t0)
+    sw $t1, 664($t0)
+    sw $t1, 672($t0)
+    sw $t1, 680($t0)
+    sw $t1, 688($t0)
+    sw $t1, 696($t0)
+    sw $t1, 704($t0)
+    sw $t1, 776($t0)
+    sw $t1, 780($t0)
+    sw $t1, 784($t0)
+    sw $t1, 792($t0)
+    sw $t1, 800($t0)
+    sw $t1, 808($t0)
+    sw $t1, 816($t0)
+    sw $t1, 824($t0)
+    sw $t1, 832($t0)
+    sw $t1, 836($t0)
+    sw $t1, 840($t0)
+    sw $t1, 1032($t0)
+    sw $t1, 1036($t0)
+    sw $t1, 1040($t0)
+    sw $t1, 1048($t0)
+    sw $t1, 1056($t0)
+    sw $t1, 1064($t0)
+    sw $t1, 1068($t0)
+    sw $t1, 1072($t0)
+    sw $t1, 1080($t0)
+    sw $t1, 1084($t0)
+    sw $t1, 1088($t0)
+    sw $t1, 1160($t0)
+    sw $t1, 1168($t0)
+    sw $t1, 1176($t0)
+    sw $t1, 1184($t0)
+    sw $t1, 1192($t0)
+    sw $t1, 1208($t0)
+    sw $t1, 1216($t0)
+    sw $t1, 1288($t0)
+    sw $t1, 1296($t0)
+    sw $t1, 1304($t0)
+    sw $t1, 1312($t0)
+    sw $t1, 1320($t0)
+    sw $t1, 1324($t0)
+    sw $t1, 1328($t0)
+    sw $t1, 1336($t0)
+    sw $t1, 1340($t0)
+    sw $t1, 1416($t0)
+    sw $t1, 1424($t0)
+    sw $t1, 1432($t0)
+    sw $t1, 1440($t0)
+    sw $t1, 1448($t0)
+    sw $t1, 1464($t0)
+    sw $t1, 1472($t0)
+    sw $t1, 1544($t0)
+    sw $t1, 1548($t0)
+    sw $t1, 1552($t0)
+    sw $t1, 1560($t0)
+    sw $t1, 1564($t0)
+    sw $t1, 1568($t0)
+    sw $t1, 1576($t0)
+    sw $t1, 1580($t0)
+    sw $t1, 1584($t0)
+    sw $t1, 1592($t0)
+    sw $t1, 1600($t0)
+    sw $t1, 1608($t0)
+    sw $t1, 2696($t0)
+    sw $t1, 2700($t0)
+    sw $t1, 2704($t0)
+    sw $t1, 2712($t0)
+    sw $t1, 2720($t0)
+    sw $t1, 2728($t0)
+    sw $t1, 2736($t0)
+    sw $t1, 2740($t0)
+    sw $t1, 2744($t0)
+    sw $t1, 2824($t0)
+    sw $t1, 2832($t0)
+    sw $t1, 2840($t0)
+    sw $t1, 2848($t0)
+    sw $t1, 2856($t0)
+    sw $t1, 2868($t0)
+    sw $t1, 2952($t0)
+    sw $t1, 2960($t0)
+    sw $t1, 2968($t0)
+    sw $t1, 2976($t0)
+    sw $t1, 2984($t0)
+    sw $t1, 2996($t0)
+    sw $t1, 3080($t0)
+    sw $t1, 3088($t0)
+    sw $t1, 3096($t0)
+    sw $t1, 3104($t0)
+    sw $t1, 3112($t0)
+    sw $t1, 3124($t0)
+    sw $t1, 3208($t0)
+    sw $t1, 3212($t0)
+    sw $t1, 3224($t0)
+    sw $t1, 3228($t0)
+    sw $t1, 3232($t0)
+    sw $t1, 3240($t0)
+    sw $t1, 3252($t0)
+    sw $t1, 3344($t0)
+    
+    li $v0, 10 # terminate the program gracefully
+    syscall
