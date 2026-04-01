@@ -54,7 +54,7 @@ movements: .word 0xffffff80 # up (-128)
 # Mutable Data
 ##############################################################################
 last_update: .word 0
-land_color: .word 0x00ffffff # white
+last_gravity_increase: .word 0
 gravity_speed: .word 0 # gravity speed
 col_locs: .word 0:3 # locations (initially didn't need this but i found a bug)
 column: .word 0:3 # colors
@@ -109,6 +109,10 @@ main:
     addi $t1, $t1, 1
     j llloop
     end_llloop:
+    # Record system time
+    li $v0, 30
+    syscall
+    sw $a0, last_gravity_increase
     # Start the game
     jal get_random_column
     j game_loop
@@ -136,6 +140,15 @@ game_loop:
     # Timer check
     li $v0, 30
     syscall
+    lw $t1, last_gravity_increase
+    sub $t2, $a0, $t1
+    blt $t2, 10000, continue_gravity
+    lw $t2, gravity_speed
+    blt $t2, 0, continue_gravity # floor is 0 
+    sub $t2, $t2, 50
+    sw $t2, gravity_speed
+    sw $a0, last_gravity_increase
+    continue_gravity:
     lw $t1, last_update
     sub $t2, $a0, $t1
     
@@ -1225,7 +1238,7 @@ draw_easy:
     
     # $t1 no longer used to we can change it
     la $t0, gravity_speed
-    li $t1, 375
+    li $t1, 1000
     sw $t1, 0($t0)
     
     # sleep for half a second
@@ -1361,7 +1374,7 @@ draw_medium:
     
     # $t1 no longer used to we can change it
     la $t0, gravity_speed
-    li $t1, 250
+    li $t1, 500
     sw $t1, 0($t0)
     
     # sleep for half a second
@@ -1474,7 +1487,7 @@ draw_hard:
     
     # $t1 no longer used to we can change it
     la $t0, gravity_speed
-    li $t1, 125
+    li $t1, 250
     sw $t1, 0($t0)
     
     # sleep for half a second
