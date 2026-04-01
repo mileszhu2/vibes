@@ -144,7 +144,7 @@ game_loop:
     sub $t2, $a0, $t1
     blt $t2, 10000, continue_gravity
     lw $t2, gravity_speed
-    blt $t2, 0, continue_gravity # floor is 0 
+    ble $t2, 0, continue_gravity # floor is 0 
     sub $t2, $t2, 50
     sw $t2, gravity_speed
     sw $a0, last_gravity_increase
