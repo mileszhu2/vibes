@@ -161,6 +161,7 @@ game_loop:
         beq $a0, 0x61, respond_to_A     # Check if the key a was pressed
         beq $a0, 0x73, respond_to_S     # Check if the key s was pressed
         beq $a0, 0x64, respond_to_D     # Check if the key d was pressed
+        beq $a0, 0x70, pause_loop       # Pause menu (if p was pressed)
         li $v0, 1                       # ask system to print $a0
         syscall
         b key_loop
@@ -222,6 +223,42 @@ game_loop:
     	jal collision_checker # check collision and update location if applicable
     	jal sleep
     	j key_loop
+    	
+    pause_loop:
+        # Check if a key is available
+        li $t0, 0xFFFF0000      # receiver control
+        lw $t1, 0($t0)
+    
+        andi $t1, $t1, 1
+        beq $t1, $zero, continue_pause   # 🔁 keep waiting
+    
+        # Read the key
+        li $t0, 0xFFFF0004
+        lw $t2, 0($t0)
+    
+        # Check for valid keys
+        li $t3, 'p'
+        beq $t2, $t3, unpause 
+    
+        li $t3, 'q'
+        beq $t2, $t3, quit_from_pause
+         
+        continue_pause:
+        jal draw_pause_menu
+        
+        # Sleep for half a second
+        li $v0, 32
+        li $a0, 500
+        syscall
+        
+        jal flash_pause
+        
+        # Sleep for half a second
+        li $v0, 32
+        li $a0, 500
+        syscall
+        
+        j pause_loop
 
     j game_loop
 
@@ -2035,7 +2072,7 @@ menu_chosen:
         addi $t2, $t2, -1
         bgtz $t2, restore_loop
 
-    j begin_loop
+    j main
 
 quit_chosen:
     lw $t0, ADDR_DSPL
@@ -2174,3 +2211,341 @@ quit_chosen:
     
     li $v0, 10 # terminate the program gracefully
     syscall
+    
+    draw_pause_menu:
+    lw $t0, ADDR_DSPL
+    li $t1, 0xffffff      # make $t1 white
+    
+    sw $t1, 940($t0)
+    sw $t1, 944($t0)
+    sw $t1, 948($t0)
+    sw $t1, 956($t0)
+    sw $t1, 960($t0)
+    sw $t1, 964($t0)
+    sw $t1, 972($t0)
+    sw $t1, 980($t0)
+    sw $t1, 988($t0)
+    sw $t1, 992($t0)
+    sw $t1, 996($t0)
+    sw $t1, 1004($t0)
+    sw $t1, 1008($t0)
+    sw $t1, 1012($t0)
+    sw $t1, 1068($t0)
+    sw $t1, 1076($t0)
+    sw $t1, 1084($t0)
+    sw $t1, 1092($t0)
+    sw $t1, 1100($t0)
+    sw $t1, 1108($t0)
+    sw $t1, 1116($t0)
+    sw $t1, 1132($t0)
+    sw $t1, 1196($t0)
+    sw $t1, 1200($t0)
+    sw $t1, 1204($t0)
+    sw $t1, 1212($t0)
+    sw $t1, 1216($t0)
+    sw $t1, 1220($t0)
+    sw $t1, 1228($t0)
+    sw $t1, 1236($t0)
+    sw $t1, 1244($t0)
+    sw $t1, 1248($t0)
+    sw $t1, 1252($t0)
+    sw $t1, 1260($t0)
+    sw $t1, 1264($t0)
+    sw $t1, 1268($t0)
+    sw $t1, 1324($t0)
+    sw $t1, 1340($t0)
+    sw $t1, 1348($t0)
+    sw $t1, 1356($t0)
+    sw $t1, 1364($t0)
+    sw $t1, 1380($t0)
+    sw $t1, 1388($t0)
+    sw $t1, 1452($t0)
+    sw $t1, 1468($t0)
+    sw $t1, 1476($t0)
+    sw $t1, 1484($t0)
+    sw $t1, 1488($t0)
+    sw $t1, 1492($t0)
+    sw $t1, 1500($t0)
+    sw $t1, 1504($t0)
+    sw $t1, 1508($t0)
+    sw $t1, 1516($t0)
+    sw $t1, 1520($t0)
+    sw $t1, 1524($t0)
+    sw $t1, 1836($t0)
+    sw $t1, 1840($t0)
+    sw $t1, 1844($t0)
+    sw $t1, 1852($t0)
+    sw $t1, 1860($t0)
+    sw $t1, 1868($t0)
+    sw $t1, 1876($t0)
+    sw $t1, 1880($t0)
+    sw $t1, 1884($t0)
+    sw $t1, 1964($t0)
+    sw $t1, 1972($t0)
+    sw $t1, 1980($t0)
+    sw $t1, 1988($t0)
+    sw $t1, 1996($t0)
+    sw $t1, 2008($t0)
+    sw $t1, 2092($t0)
+    sw $t1, 2100($t0)
+    sw $t1, 2108($t0)
+    sw $t1, 2116($t0)
+    sw $t1, 2124($t0)
+    sw $t1, 2136($t0)
+    sw $t1, 2220($t0)
+    sw $t1, 2228($t0)
+    sw $t1, 2236($t0)
+    sw $t1, 2244($t0)
+    sw $t1, 2252($t0)
+    sw $t1, 2264($t0)
+    sw $t1, 2348($t0)
+    sw $t1, 2352($t0)
+    sw $t1, 2364($t0)
+    sw $t1, 2368($t0)
+    sw $t1, 2372($t0)
+    sw $t1, 2380($t0)
+    sw $t1, 2392($t0)
+    sw $t1, 2484($t0)
+    
+    jr $ra
+    
+clear_pause_menu:
+    lw $t0, ADDR_DSPL
+    li $t1, 0x000000      # make $t1 black
+    
+    sw $t1, 940($t0)
+    sw $t1, 944($t0)
+    sw $t1, 948($t0)
+    sw $t1, 956($t0)
+    sw $t1, 960($t0)
+    sw $t1, 964($t0)
+    sw $t1, 972($t0)
+    sw $t1, 980($t0)
+    sw $t1, 988($t0)
+    sw $t1, 992($t0)
+    sw $t1, 996($t0)
+    sw $t1, 1004($t0)
+    sw $t1, 1008($t0)
+    sw $t1, 1012($t0)
+    sw $t1, 1068($t0)
+    sw $t1, 1076($t0)
+    sw $t1, 1084($t0)
+    sw $t1, 1092($t0)
+    sw $t1, 1100($t0)
+    sw $t1, 1108($t0)
+    sw $t1, 1116($t0)
+    sw $t1, 1132($t0)
+    sw $t1, 1196($t0)
+    sw $t1, 1200($t0)
+    sw $t1, 1204($t0)
+    sw $t1, 1212($t0)
+    sw $t1, 1216($t0)
+    sw $t1, 1220($t0)
+    sw $t1, 1228($t0)
+    sw $t1, 1236($t0)
+    sw $t1, 1244($t0)
+    sw $t1, 1248($t0)
+    sw $t1, 1252($t0)
+    sw $t1, 1260($t0)
+    sw $t1, 1264($t0)
+    sw $t1, 1268($t0)
+    sw $t1, 1324($t0)
+    sw $t1, 1340($t0)
+    sw $t1, 1348($t0)
+    sw $t1, 1356($t0)
+    sw $t1, 1364($t0)
+    sw $t1, 1380($t0)
+    sw $t1, 1388($t0)
+    sw $t1, 1452($t0)
+    sw $t1, 1468($t0)
+    sw $t1, 1476($t0)
+    sw $t1, 1484($t0)
+    sw $t1, 1488($t0)
+    sw $t1, 1492($t0)
+    sw $t1, 1500($t0)
+    sw $t1, 1504($t0)
+    sw $t1, 1508($t0)
+    sw $t1, 1516($t0)
+    sw $t1, 1520($t0)
+    sw $t1, 1524($t0)
+    sw $t1, 1836($t0)
+    sw $t1, 1840($t0)
+    sw $t1, 1844($t0)
+    sw $t1, 1852($t0)
+    sw $t1, 1860($t0)
+    sw $t1, 1868($t0)
+    sw $t1, 1876($t0)
+    sw $t1, 1880($t0)
+    sw $t1, 1884($t0)
+    sw $t1, 1964($t0)
+    sw $t1, 1972($t0)
+    sw $t1, 1980($t0)
+    sw $t1, 1988($t0)
+    sw $t1, 1996($t0)
+    sw $t1, 2008($t0)
+    sw $t1, 2092($t0)
+    sw $t1, 2100($t0)
+    sw $t1, 2108($t0)
+    sw $t1, 2116($t0)
+    sw $t1, 2124($t0)
+    sw $t1, 2136($t0)
+    sw $t1, 2220($t0)
+    sw $t1, 2228($t0)
+    sw $t1, 2236($t0)
+    sw $t1, 2244($t0)
+    sw $t1, 2252($t0)
+    sw $t1, 2264($t0)
+    sw $t1, 2348($t0)
+    sw $t1, 2352($t0)
+    sw $t1, 2364($t0)
+    sw $t1, 2368($t0)
+    sw $t1, 2372($t0)
+    sw $t1, 2380($t0)
+    sw $t1, 2392($t0)
+    sw $t1, 2484($t0)
+    
+    jr $ra
+    
+unpause:
+    jal clear_pause_menu
+    
+    lw $t0, ADDR_DSPL
+    li $t1, 0xffffff      # make $t1 white
+    
+    sw $t1, 940($t0)
+    sw $t1, 944($t0)
+    sw $t1, 948($t0)
+    sw $t1, 956($t0)
+    sw $t1, 960($t0)
+    sw $t1, 964($t0)
+    sw $t1, 972($t0)
+    sw $t1, 980($t0)
+    sw $t1, 988($t0)
+    sw $t1, 992($t0)
+    sw $t1, 996($t0)
+    sw $t1, 1004($t0)
+    sw $t1, 1008($t0)
+    sw $t1, 1012($t0)
+    sw $t1, 1068($t0)
+    sw $t1, 1076($t0)
+    sw $t1, 1084($t0)
+    sw $t1, 1092($t0)
+    sw $t1, 1100($t0)
+    sw $t1, 1108($t0)
+    sw $t1, 1116($t0)
+    sw $t1, 1132($t0)
+    sw $t1, 1196($t0)
+    sw $t1, 1200($t0)
+    sw $t1, 1204($t0)
+    sw $t1, 1212($t0)
+    sw $t1, 1216($t0)
+    sw $t1, 1220($t0)
+    sw $t1, 1228($t0)
+    sw $t1, 1236($t0)
+    sw $t1, 1244($t0)
+    sw $t1, 1248($t0)
+    sw $t1, 1252($t0)
+    sw $t1, 1260($t0)
+    sw $t1, 1264($t0)
+    sw $t1, 1268($t0)
+    sw $t1, 1324($t0)
+    sw $t1, 1340($t0)
+    sw $t1, 1348($t0)
+    sw $t1, 1356($t0)
+    sw $t1, 1364($t0)
+    sw $t1, 1380($t0)
+    sw $t1, 1388($t0)
+    sw $t1, 1452($t0)
+    sw $t1, 1468($t0)
+    sw $t1, 1476($t0)
+    sw $t1, 1484($t0)
+    sw $t1, 1488($t0)
+    sw $t1, 1492($t0)
+    sw $t1, 1500($t0)
+    sw $t1, 1504($t0)
+    sw $t1, 1508($t0)
+    sw $t1, 1516($t0)
+    sw $t1, 1520($t0)
+    sw $t1, 1524($t0)
+    
+    # Sleep for 2 seconds
+    li $v0, 32
+    li $a0, 2000
+    syscall
+    
+    jal clear_pause_menu
+    
+    j key_loop
+    
+quit_from_pause:
+    jal clear_pause_menu
+    
+    lw $t0, ADDR_DSPL
+    li $t1, 0xffffff
+    
+    sw $t1, 1836($t0)
+    sw $t1, 1840($t0)
+    sw $t1, 1844($t0)
+    sw $t1, 1852($t0)
+    sw $t1, 1860($t0)
+    sw $t1, 1868($t0)
+    sw $t1, 1876($t0)
+    sw $t1, 1880($t0)
+    sw $t1, 1884($t0)
+    sw $t1, 1964($t0)
+    sw $t1, 1972($t0)
+    sw $t1, 1980($t0)
+    sw $t1, 1988($t0)
+    sw $t1, 1996($t0)
+    sw $t1, 2008($t0)
+    sw $t1, 2092($t0)
+    sw $t1, 2100($t0)
+    sw $t1, 2108($t0)
+    sw $t1, 2116($t0)
+    sw $t1, 2124($t0)
+    sw $t1, 2136($t0)
+    sw $t1, 2220($t0)
+    sw $t1, 2228($t0)
+    sw $t1, 2236($t0)
+    sw $t1, 2244($t0)
+    sw $t1, 2252($t0)
+    sw $t1, 2264($t0)
+    sw $t1, 2348($t0)
+    sw $t1, 2352($t0)
+    sw $t1, 2364($t0)
+    sw $t1, 2368($t0)
+    sw $t1, 2372($t0)
+    sw $t1, 2380($t0)
+    sw $t1, 2392($t0)
+    sw $t1, 2484($t0)
+    
+    j respond_to_Q
+    
+flash_pause:
+    lw $t0, ADDR_DSPL
+    li $t1, 0x000000      # make $t1 black
+    
+    sw $t1, 940($t0)
+    sw $t1, 944($t0)
+    sw $t1, 948($t0)
+    sw $t1, 1068($t0)
+    sw $t1, 1076($t0)
+    sw $t1, 1196($t0)
+    sw $t1, 1200($t0)
+    sw $t1, 1204($t0)
+    sw $t1, 1324($t0)
+    sw $t1, 1452($t0)
+    sw $t1, 1836($t0)
+    sw $t1, 1840($t0)
+    sw $t1, 1844($t0)
+    sw $t1, 1964($t0)
+    sw $t1, 1972($t0)
+    sw $t1, 2092($t0)
+    sw $t1, 2100($t0)
+    sw $t1, 2220($t0)
+    sw $t1, 2228($t0)
+    sw $t1, 2348($t0)
+    sw $t1, 2352($t0)
+    sw $t1, 2484($t0)
+    
+    jr $ra
