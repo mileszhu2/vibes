@@ -1,9 +1,7 @@
 ################# CSC258 Assembly Final Project ###################
 # This file contains our implementation of Columns.
 #
-# Student 1: Steven Zhuang, 1011112225
-# Student 2: Miles Zhu, 1011373693
-#
+# By Steven & Miles (totally PG iykyk)
 # We assert that the code submitted here is entirely our own 
 # creation, and will indicate otherwise when it is not.
 #
