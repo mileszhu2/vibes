@@ -24,6 +24,8 @@ BOARD_HEIGHT = 32
 # once every LOOP_DELAY milliseconds.
 LOOP_DELAY = 50
 
+SPEED_CAP = 1
+
 # Character icons
 BACKGROUND_ICON = 'icons/Background.png'
 BOUNDARY_ICON = 'icons/Boundary.png'
@@ -34,6 +36,7 @@ GREEN_ICON = 'icons/GreenGem.png'
 BLUE_ICON = 'icons/BlueGem.png'
 PURPLE_ICON = 'icons/PurpleGem.png'
 DARK_ICON = 'icons/DarkGem.png'
+LIGHT = 'icons/Light.png'
 
 
 def make_image(icon_file: str, width: int, height: int) -> pygame.surface:
@@ -62,6 +65,9 @@ class ColumnsGame:
     width: int
     height: int
     square_size: int
+    difficulty: int
+    frequency: int
+    speed: int
     _board: a1.GameBoard
     _screen: pygame.Surface
     _icon_map: dict[str, pygame.Surface]
@@ -79,6 +85,10 @@ class ColumnsGame:
 
         self.square_size = min(int(SCREEN_WIDTH / w),
                                int(SCREEN_HEIGHT / h))
+
+        self.difficulty = 0
+        self.frequency = 1
+        self.speed = 10000
 
         # Initialize a window of these pixel dimensions for display
         self._screen = pygame.display.set_mode((w * self.square_size,
@@ -100,7 +110,8 @@ class ColumnsGame:
                           'P': image_loader(PURPLE_ICON),
                           'D': image_loader(DARK_ICON),
                           'Z': image_loader(BOUNDARY_ICON),
-                          'W': image_loader(WHITE)
+                          'W': image_loader(WHITE),
+                          'L': image_loader(LIGHT)
                           }
 
         self._last_state = None
@@ -181,15 +192,37 @@ class ColumnsGame:
             counter += 1
             difficulty = self.menu_screen(difficulty)
 
-        self._board.difficulty = difficulty
+        self.difficulty = difficulty
         self.draw_blank()
         self.draw_game()
 
+        gravity_counter = 0
+        turn_counter = 0
+        animate = 0
         while not self._board.ended:
+            if self._board.animate:
+                if animate == 0:
+                    pygame.time.wait(1000)
+                    animate = 1
+                pygame.time.wait(150)
+                self._board.give_turns()
+                self.draw()
+                pygame.event.clear()
+                continue
+            animate = 0
             pygame.time.wait(LOOP_DELAY)
             # Handle all inputs that are in the event queue,
             # i.e., that occurred since the last iteration.
-            self._handle_user_input()
+            self._handle_user_input(gravity_counter)
+            if (self._board.turns != turn_counter and
+                    self._board.turns % self.frequency == 0 and
+                    self.speed > SPEED_CAP):
+                self.speed += -self.difficulty
+                turn_counter = self._board.turns
+            if gravity_counter >= self.speed:
+                gravity_counter = 0
+            else:
+                gravity_counter += 1
 
         # game has ended, print message
         self.draw_end()
@@ -202,10 +235,17 @@ class ColumnsGame:
                 if event.type == pygame.constants.QUIT:
                     sys.exit()
 
-    def _handle_user_input(self) -> None:
+    def _handle_user_input(self, *args) -> None:
         """Handle user input, give characters their turns, and
         redraw the game board.
         """
+        if args:
+            if isinstance(args[0], int) and args[0] == self.speed:
+                self._board.handle_event("gravity")
+                self._board.give_turns()
+                self.draw()
+                return
+
         for event in pygame.event.get():
             # Stop if user closed the window.
             if event.type == pygame.constants.QUIT:
@@ -229,7 +269,7 @@ class ColumnsGame:
         self._board.give_turns()
         self.draw()
 
-    def menu_screen(self, difficulty: str) -> str:
+    def menu_screen(self, difficulty: str) -> int:
         """
         Displays the Menu Screen for Easy, Medium, Hard difficulties.
         """
@@ -240,22 +280,29 @@ class ColumnsGame:
                 sys.exit()
             if event.type == pygame.constants.KEYDOWN:
                 if event.key == pygame.constants.K_e:
-                    difficulty = "e"
+                    difficulty = 2
+                    self.frequency = 20
+                    self.speed = 10000 // LOOP_DELAY
                     self._board.set_board(constants.EASY, False)
                     self.draw()
                     pygame.time.wait(2000)
                 if event.key == pygame.constants.K_m:
-                    difficulty = "m"
+                    difficulty = 2
+                    self.frequency = 10
+                    self.speed = 5000 // LOOP_DELAY
                     self._board.set_board(constants.MEDIUM, False)
                     self.draw()
                     pygame.time.wait(2000)
                 if event.key == pygame.constants.K_h:
-                    difficulty = "h"
+                    difficulty = 1
+                    self.frequency = 10
+                    self.speed = 1000 // LOOP_DELAY
                     self._board.set_board(constants.HARD, False)
                     self.draw()
                     pygame.time.wait(2000)
                 if event.key == pygame.constants.K_t:
-                    difficulty = "t"
+                    difficulty = 0
+                    self.speed = SPEED_CAP
 
         return difficulty
 

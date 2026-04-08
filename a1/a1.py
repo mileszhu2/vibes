@@ -9,12 +9,12 @@ import random
 # Directions dx, dy
 LEFT = (-1, 0)
 RIGHT = (1, 0)
-UP = (0, 1)
-DOWN = (0, -1)
-TOPLEFT = (-1, 1)
-TOPRIGHT = (1, 1)
-BOTLEFT = (-1, -1)
-BOTRIGHT = (1, -1)
+UP = (0, -1)
+DOWN = (0, 1)
+TOPLEFT = (-1, -1)
+TOPRIGHT = (1, -1)
+BOTLEFT = (-1, 1)
+BOTRIGHT = (1, 1)
 DIRECTIONS = [LEFT, RIGHT, UP, DOWN, TOPLEFT, BOTRIGHT, BOTLEFT, TOPRIGHT]
 
 
@@ -48,7 +48,7 @@ class GameBoard:
     turns: int
     width: int
     height: int
-    difficulty: str | None
+    animate: bool
     _player: Player | None
     _board: list[list[list[Character]]]
     _land_locations: list[int] | None # for player
@@ -75,7 +75,8 @@ class GameBoard:
         self.width = w
         self.height = h
 
-        self.difficulty = None
+        self.animate = False
+
         self._player = None
 
         self._board = [[[] for i in range(w)] for j in range(h)]
@@ -256,9 +257,10 @@ class GameBoard:
         Precondition:
         self._player is not None
         """
-        self._player.take_turn()
-        self.turns += 1  # PROVIDED, DO NOT CHANGE
-        self.check_game_ended()  # PROVIDED, DO NOT CHANGE
+        turn = self._player.take_turn()
+        if turn:
+            self.turns += 1  # PROVIDED, DO NOT CHANGE
+            self.check_game_ended()  # PROVIDED, DO NOT CHANGE
 
     def handle_event(self, event: str) -> None:
         """Handle a user-input event.
@@ -370,6 +372,8 @@ class Player:
     the user made, or None if there is currently no keypress event to process.
     - _col_hitbox: The index on the board where the bottom square of the column.
     - landed: if player landed the column
+    - _to_update: list of locations to update
+    - _to_check: for recursive call to _find_connections()
     """
 
     board: GameBoard
@@ -378,6 +382,8 @@ class Player:
     landed: bool
     _last_event: str | None
     _col_hitbox: tuple[int, int]
+    _to_update: list[tuple[int, int]]
+    _to_check: list[tuple[int, int]]
 
     def __init__(self, b: GameBoard) -> None:
         """Initialize this Player with board <b>.
@@ -387,6 +393,8 @@ class Player:
         self.landed = False
         self._last_event = None
         self._col_hitbox = (1,3) # y: 4th row (3), x: 2nd index (1)
+        self._to_update = []
+        self._to_check = []
         self.get_next_col()
         self.start_turn()
 
@@ -419,7 +427,7 @@ class Player:
         """
         self._last_event = event
 
-    def take_turn(self) -> None:
+    def take_turn(self) -> bool:
         """Take a turn in the game.
 
         For a Player, this means responding to the last user input recorded
@@ -428,6 +436,20 @@ class Player:
         if self.landed:
             self.start_turn()
         self.landed = False
+
+        if self._to_update:
+            self._update_game()
+            return self.landed
+
+        if self._to_check:
+            self._find_connection(self._to_check)
+            return self.landed
+
+        if self._last_event == "gravity" and not self.landed:
+            success = self.move(DOWN)
+            if not success:
+                self.land()
+            self._last_event = None
 
         if self._last_event == "w":
             self.shuffle()
@@ -448,6 +470,8 @@ class Player:
         if self._last_event == "q":
             self.board.ended = True
             self._last_event = None
+
+        return self.landed
 
     def move(self, direction: tuple[int, int]) -> bool:
         x = self._col_hitbox[0]
@@ -491,10 +515,14 @@ class Player:
     def land(self) -> None:
         x = self._col_hitbox[0]
         new_y = self.board.get_land_location(x-1) # account for list index
-        if self.board.at(x, new_y):
+        if not (self.board.on_board(x, new_y)):
             return
-        if (self.board.on_board(x, new_y) and
-                self.board.on_board(x, new_y-1) and
+        if new_y < self._col_hitbox[1]:
+            return
+        if (self.board.at(x, new_y) and not
+        self.col[0] == self.board.at(x, new_y)[0]):
+            return
+        if (self.board.on_board(x, new_y-1) and
                 self.board.on_board(x, new_y-2)):
             self.board.update_pos(x, new_y, self.col[0])
             self.board.update_pos(x, new_y-1, self.col[1])
@@ -504,9 +532,8 @@ class Player:
                          (self.col[1].x, self.col[1].y),
                          (self.col[2].x, self.col[2].y)]
             self._find_connection(locations)
-            self.landed = True
 
-    def _find_connection(self, targets: list[tuple[int, int]]) -> None:
+    def _find_connection(self, targets: list[tuple[int, int]]) -> list[int]:
         connections = []
         for root_x, root_y in targets:
             character = self.board.at(root_x, root_y)
@@ -524,24 +551,44 @@ class Player:
                     for xy in connection:
                         if xy not in connections:
                             connections.append(xy)
-
         locations = []
+        update = []
         connections.sort() # lowest to highest numbers
         for xy in connections:
             x = xy % 128
             y = (xy - x) // 128
             locations.append((x, y))
+            update.append((x, y))
             self.board.remove_character(x, y)
+            character_factory('L', self.board, x, y)
             y += -1
             c = self.board.at(x, y)
-            while y != 0 and c:
-                self.board.update_pos(x, y+1, c[0])
+            while y != 1 and c:
+                locations.append((x, y))
+                update.append((x, y))
                 y += -1
                 c = self.board.at(x, y)
             current_ll = self.board.get_land_location(x-1)
             self.board.update_land_location(x-1, current_ll + 1)
-        if locations:
-            self._find_connection(locations)
+        self._to_check = locations
+        self._to_update = update
+        if not locations:
+            self.landed = True
+            self.board.animate = False
+        else:
+            self.board.animate = True
+        return connections
+
+    def _update_game(self) -> None:
+        """Paints black the x, y from _to_update and moves the block above down
+        to its place."""
+        x, y = self._to_update.pop(0)
+        self.board.remove_character(x, y)
+        y += -1
+        c = self.board.at(x, y)
+        if c:
+            self.board.update_pos(x, y+1, c[0])
+
 
     def _flood_fill(self, x: int, y: int, color: str,
                    connection: list[int], direction: tuple[int, int]) -> None:
@@ -607,6 +654,14 @@ class Dark(Character):
         return "D"
 
 
+class Light(Character):
+    def move(self, direction: tuple[int, int]) -> bool:
+        return False
+
+    def get_symbol(self) -> str:
+        return "L"
+
+
 class Boundary(Character):
     def move(self, direction: tuple[int, int]) -> bool:
         return False
@@ -636,6 +691,8 @@ def character_factory(symbol: str, b: GameBoard, x: int, y: int) -> Character:
         return Purple(b, x, y)
     elif symbol == "D":
         return Dark(b, x, y)
+    elif symbol == "L":
+        return Light(b, x, y)
     elif symbol == "Z":
         return Boundary(b, x, y)
     elif symbol == "W":
