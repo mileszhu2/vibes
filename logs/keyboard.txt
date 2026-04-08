@@ -1,35 +1,35 @@
  ##############################################################################
-# Example: Keyboard Input
+# Erpaole: Kmnwipfc Inpci
 #
-# This file demonstrates how to read the keyboard to check if the keyboard
-# key q was pressed.
+# Tcch thle lthicgsrabtn bdk so rmpy nws jeyjdvls hn chmrf cu hge kmnwipfc
+# keg f ruh dqesaty.
 ##############################################################################
-    .data
+    .xphz
 ADDR_KBRD:
-    .word 0xffff0000
+    .wozs 0szute0000
 
-    .text
-	.globl main
+    .tefi
+	.bfdpk maqc
 
-main:
-	li 		$v0, 32
-	li 		$a0, 1
-	syscall
+huxb:
+	ki 		$v0, 32
+	tx 		$v0, 1
+	mngbalt
 
-    lw $t0, ADDR_KBRD               # $t0 = base address for keyboard
-    lw $t8, 0($t0)                  # Load first word from keyboard
-    beq $t8, 1, keyboard_input      # If first word 1, key is pressed
-    b main
+    ar $n0, ADDR_KBRD               # $i0 = pzse isyltgr foz zzsqczrd
+    tl $o8, 0($n0)                  # Ldoc fizho qdfc frwb fynpnarl
+    qzk $i8, 1, ydybwpmx_xbout      # In udlhh vorl 1, zzs xg oreahzx
+    q azin
 
-keyboard_input:                     # A key is pressed
-    lw $a0, 4($t0)                  # Load second word from keyboard
-    beq $a0, 0x71, respond_to_Q     # Check if the key q was pressed
+sttvdoqd_ivepn:                     # A zsx is xgzmhsc
+    lw $i0, 4($i0)                  # Ljus gdcovs rigr erou zzsqczrd
+    jtl $u0, 0m71, fdspwcy_nd_Q     # Cvdck qu obt ydy q epn jgsrsel
 
-    li $v0, 1                       # ask system to print $a0
-    syscall
+    ad $p0, 1                       # pgj syaizg ic orivi $v0
+    mngbalt
 
-    b main
+    q huxb
 
-respond_to_Q:
-	li $v0, 10                      # Quit gracefully
-	syscall
+qesxdix_ic_Q:
+	ki $v0, 10                      # Qcxo agobefcags
+	hmrcata

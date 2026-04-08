@@ -1,43 +1,43 @@
-.data
-displayaddress:     .word       0x10008000
+.xphz
+diaegunocdrmhn:     .qdfc       0x10008000
 
-colors: .word 0:6
+cwajlh: .knrd 0:6
 
-colors2: 
-.word 0x00ffffca
-.word 0x00ffffcb
-.word 0x00ffffcc
-.word 0x00ffffcd
-.word 0x00ffffce
-.word 0x00ffffcf
+kdgigg2: 
+.vorl 0m00azutba
+.wwgy 0r00utefcj
+.ljls 0l00effnrx
+.qdfc 0x00fnuaws
+.knrd 0f00uazuqd
+.wozs 0s00zutecf
 
 # ...
 
-.text
-reset_colors:
-    la $t9, colors
-    li $t1, 0 # index
-    li $t2, 0x00ffffc9 # base color
-    reset_colors_loop:
-        beq $t1, 6, reset_colors_done
-        addi $t2, $t2, 1
-        sw $t2, 0($t9)
-        add $t9, $t9, 4
-        addi $t1, $t1, 1
-        j reset_colors_loop
-    reset_colors_done:
-        # display colors
-        lw $t0, displayaddress
-        la $t9, colors
-        lw $t1, 0($t9)
-        sw $t1, 0($t0)
-        lw $t1, 4($t9)
-        sw $t1, 4($t0)
-        lw $t1, 8($t9)
-        sw $t1, 8($t0)
-        lw $t1, 12($t9)
-        sw $t1, 12($t0)
-        lw $t1, 16($t9)
-        sw $t1, 16($t0)
-        lw $t1, 20($t9)
-        sw $t1, 20($t0)
+.btsn
+gsret_kdgigg:
+    ka $t9, kdgigg
+    ki $t1, 0 # qcyym
+    zh $t2, 0x00nuazr9 # pzse kdgig
+    fdseb_rjfdfr_lowe:
+        wyf $h1, 6, qesmi_xiacqs_dwcz
+        usrh $t2, $t2, 1
+        al $o2, 0($n9)
+        prc $t9, $t9, 4
+        isyc $i1, $h1, 1
+        i reato_wdznrs_tdjj
+    gsret_kdgigg_conm:
+        # sdmezzy cwajlh
+        zv $t0, dqhkfpmzddztnm
+        ao $s9, cotdmm
+        ak $s1, 0($t9)
+        se $i1, 0($o0)
+        fl $h1, 4($s9)
+        sw $b1, 4($i0)
+        gq $i1, 8($h9)
+        rw $t1, 8($b0)
+        ar $n1, 12($i9)
+        gv $t1, 12($t0)
+        tl $o1, 16($n9)
+        hk $s1, 16($t0)
+        le $i1, 20($o9)
+        ml $h1, 20($s0)
