@@ -77,13 +77,29 @@ class GameBoard:
 
         self.difficulty = None
 
-        self._player = Player(self)
         self._board = [[[] for i in range(w)] for j in range(h)]
 
         if args:
             land_height = args[0]
             if isinstance(land_height, int):
                 self._land_locations= [land_height for i in range(6)]
+
+        self._player = Player(self)
+
+    def set_board(self, board: list[list[list[str]]]) -> None:
+        """Set the board to a preconfigured one.
+        Preconditions:
+        - len(board) = self.height
+        - len(board[0]) = self.width
+        - each string is a symbol of a valid character
+        """
+        for i in range(len(board)):
+            row = board[i]
+            for j in range(len(row)):
+                character = row[j]
+                if character:
+                    symbol = character[0]
+                    character_factory(symbol, self, j, i)
 
     def get_land_location(self, index: int) -> int:
         if not self._land_locations:
@@ -155,6 +171,8 @@ class GameBoard:
         if len(self._board[c.y][c.x]) == 1 and self._board[c.y][c.x][0] == c:
             self._board[c.y][c.x].remove(c)
             self._board[y][x].append(c)
+            c.x = x
+            c.y = y
 
     def at(self, x: int, y: int) -> list[Character]:
         """Return the characters at tile (x, y).
@@ -268,11 +286,12 @@ class GameBoard:
         >>> b.ended
         True
         """
-        length_1 = len(self._board[1][1])
-        length_2 = len(self._board[2][1])
-        length_3 = len(self._board[3][1])
-        if length_1 == 1 or length_2 == 1 or length_3 == 1:
-            self.ended = True
+        if self._player.landed:
+            length_1 = len(self._board[1][1])
+            length_2 = len(self._board[2][1])
+            length_3 = len(self._board[3][1])
+            if length_1 == 1 or length_2 == 1 or length_3 == 1:
+                self.ended = True
         return None
 
 
@@ -341,10 +360,13 @@ class Player:
     - _last_event: The direction corresponding to the last keypress event that
     the user made, or None if there is currently no keypress event to process.
     - _col_hitbox: The index on the board where the bottom square of the column.
+    - landed: if player landed the column
     """
 
     board: GameBoard
     col : tuple[Character, Character, Character] # bottom to top
+    next_col : tuple[Character, Character, Character] # bottom to top
+    landed: bool
     _last_event: str | None
     _col_hitbox: tuple[int, int]
 
@@ -353,20 +375,31 @@ class Player:
         """
 
         self.board = b
+        self.landed = False
         self._last_event = None
         self._col_hitbox = (1,3) # y: 4th row (3), x: 2nd index (1)
-        self.get_new_col()
+        self.get_next_col()
+        self.start_turn()
 
-    def get_new_col(self) -> None:
+    def get_next_col(self) -> None:
         """Random generate new 3x1 column and store in self.col"""
         i = 0
         characters = []
         while i < 3:
             n = random.choice(['R', 'O', 'G', 'B', 'P', 'D'])
-            c = create_column(n, self.board,1, 3-i)
+            c = character_factory(n, self.board, 8, 3 - i)
             characters.append(c)
             i += 1
-        self.col = tuple(characters)
+        self.next_col = tuple(characters)
+
+    def start_turn(self) -> None:
+        """Prepare to start the turn by moving the next column to the current
+        column position and generating a new next column."""
+        self.col = self.next_col
+        for c in self.next_col:
+            self.board.update_pos(1, c.y, c)
+        self.get_next_col()
+        self._col_hitbox = (1, 3)
 
     def record_event(self, event: str) -> None:
         """Record that <event> is the last key press that the user
@@ -383,6 +416,10 @@ class Player:
         For a Player, this means responding to the last user input recorded
         by a call to record_event.
         """
+        if self.landed:
+            self.start_turn()
+        self.landed = False
+
         if self._last_event == "w":
             self.shuffle()
             self._last_event = None
@@ -415,29 +452,37 @@ class Player:
         if not tile:
             self.board.update_pos(new_x, new_y, self.col[0])
             self._col_hitbox = (new_x, new_y)
-            new_y = new_y + 1
+            new_y = new_y - 1
             self.board.update_pos(new_x, new_y, self.col[1])
-            new_y = new_y + 1
+            new_y = new_y - 1
             self.board.update_pos(new_x, new_y, self.col[2])
             return True
         else:
             return False
 
     def shuffle(self) -> None:
-        column = [None, None, None]
+        column = list(self.col[:])
+        ref = [(0, 0), (0, 0), (0, 0)]
+        for i in range(len(self.col)):
+            c = self.col[i]
+            self.board.remove_character(c.x, c.y)
+            ref[i] = (c.x, c.y)
         for i in range(len(self.col)):
             c = self.col[i]
             if i == 2:
+                c.x, c.y = ref[0]
                 column[0] = c
+                self.board.place_character(c)
             else:
+                c.x, c.y = ref[i+1]
                 column[i+1] = c
+                self.board.place_character(c)
         self.col = tuple(column)
 
     def land(self) -> None:
         x = self._col_hitbox[0]
         new_y = self.board.get_land_location(x-1) # account for list index
-        if (self.board.at(x, new_y) or self.board.at(x, new_y-1) or
-                self.board.at(x, new_y-2)):
+        if self.board.at(x, new_y):
             return
         if (self.board.on_board(x, new_y) and
                 self.board.on_board(x, new_y-1) and
@@ -446,34 +491,33 @@ class Player:
             self.board.update_pos(x, new_y-1, self.col[1])
             self.board.update_pos(x, new_y-2, self.col[2])
             self.board.update_land_location(x-1, new_y-3)
-            self._find_connection()
-            self.get_new_col()
+            self._find_connection(list(self.col[:]))
+            self.landed = True
 
-    def _find_connection(self) -> None:
+    def _find_connection(self, targets: list[Character]) -> None:
         connections = []
-        for character in self.col:
-            x = character.x
-            y = character.y
-            color = character.get_symbol()
+        for character in targets:
+            root_x = character.x
+            root_y = character.y
+            root_color = character.get_symbol()
             for i in range(4):
                 connection = []
                 i = 2 * i
-                d1 = DIRECTIONS[1]
+                d1 = DIRECTIONS[i]
                 d2 = DIRECTIONS[i + 1]
-                connection_length = 0
-                self._flood_fill(x, y, color, connection, d1,
-                                 connection_length)
-                self._flood_fill(x, y, color, connection, d2,
-                                 connection_length)
-                if connection_length >= 3:
+                self._flood_fill(root_x, root_y, root_color, connection, d1)
+                self._flood_fill(root_x, root_y, root_color, connection, d2)
+                if len(connection) >= 3:
                     for xy in connection:
                         if xy not in connections:
                             connections.append(xy)
 
+        characters = []
         connections.sort() # lowest to highest numbers
         for xy in connections:
             x = xy % 128
             y = (xy - x) // 128
+            characters.append(self.board.at(x, y)[0])
             self.board.remove_character(x, y)
             y += -1
             c = self.board.at(x, y)
@@ -482,11 +526,12 @@ class Player:
                 y += -1
                 c = self.board.at(x, y)
             current_ll = self.board.get_land_location(x-1)
-            self.board.update_land_location(current_ll - 1)
+            self.board.update_land_location(x-1, current_ll + 1)
+        if characters:
+            self._find_connection(characters)
 
     def _flood_fill(self, x: int, y: int, color: str,
-                   connection: list[int], direction: tuple[int, int],
-                    length: int) -> None:
+                   connection: list[int], direction: tuple[int, int]) -> None:
         xy = (y * 128) + x
         if xy not in connection:
             connection.append(xy)
@@ -497,9 +542,8 @@ class Player:
         if c:
             new_color = c[0].get_symbol()
         if new_color == color:
-            length += 1
             self._flood_fill(new_x, new_y, new_color,
-                             connection, direction, length)
+                             connection, direction)
 
 
 class Red(Character):
@@ -566,7 +610,7 @@ class White(Character):
         return "W"
 
 
-def create_column(symbol: str, b: GameBoard, x: int, y: int) -> Character:
+def character_factory(symbol: str, b: GameBoard, x: int, y: int) -> Character:
     if symbol == "R":
         return Red(b, x, y)
     elif symbol == "O":
@@ -579,5 +623,9 @@ def create_column(symbol: str, b: GameBoard, x: int, y: int) -> Character:
         return Purple(b, x, y)
     elif symbol == "D":
         return Dark(b, x, y)
+    elif symbol == "Z":
+        return Boundary(b, x, y)
+    elif symbol == "W":
+        return White(b, x, y)
     else:
         return Character(b, x, y)

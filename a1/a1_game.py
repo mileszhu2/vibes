@@ -7,6 +7,7 @@ import sys
 import pygame
 
 import a1
+import constants
 
 # Feel free to modify any of these constant values.
 
@@ -153,11 +154,15 @@ class ColumnsGame:
         """
         Draw the game over screen.
         """
+        board = constants.MENU
+        self._board.set_board(board)
 
     def draw_game(self) -> None:
         """
         Draw the game over screen.
         """
+        board = constants.GAME
+        self._board.set_board(board)
 
     def draw_end(self) -> None:
         """
@@ -168,8 +173,7 @@ class ColumnsGame:
         """
         Play the game!
         """
-
-        self.draw_menu()
+        # self.draw_menu()
         while difficulty == "":
             difficulty = menu_screen(difficulty)
 
